@@ -48,14 +48,14 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 
 interface Participant {
-    id: string;
-    name: string;
-    isCurrentUser: boolean;
-    stream?: MediaStream;
-    isSpeaking?: boolean;
-    avatar?: string;
-    isVideoOn?: boolean; // Add this
-    isMicOn?: boolean;   // Add this
+    id: string
+    name: string
+    isCurrentUser: boolean
+    stream?: MediaStream
+    isSpeaking?: boolean
+    avatar?: string
+    isVideoOn?: boolean
+    isMicOn?: boolean
 }
 
 export default function MeetingRoom() {
@@ -228,13 +228,11 @@ export default function MeetingRoom() {
         webRTCServiceRef.current = webRTCService
 
         webRTCService.onTrack((stream, peerId) => {
-            console.log(`Received track from peer: ${peerId}`);
+            console.log(`Received track from peer: ${peerId}`)
             setParticipants((prev) => {
-                const existingParticipant = prev.find((p) => p.id === peerId);
+                const existingParticipant = prev.find((p) => p.id === peerId)
                 if (existingParticipant) {
-                    return prev.map((p) =>
-                        p.id === peerId ? { ...p, stream, isVideoOn: true, isMicOn: true } : p
-                    );
+                    return prev.map((p) => (p.id === peerId ? { ...p, stream } : p))
                 } else {
                     return [
                         ...prev,
@@ -243,26 +241,12 @@ export default function MeetingRoom() {
                             name: `User ${peerId.substring(0, 4)}`,
                             isCurrentUser: false,
                             stream,
-                            avatar: `https://source.boringavatars.com/beam/120/${peerId}?colors=7c3aed`,
-                            isVideoOn: true,
-                            isMicOn: true,
+                            avatar: `https://source.boringavatars.com/beam/120/${peerId}?colors=4f46e5`,
                         },
-                    ];
+                    ]
                 }
-            });
-        });
-
-        webRTCService.onVideoToggle((peerId, enabled) => {
-            setParticipants((prev) =>
-                prev.map((p) => (p.id === peerId ? { ...p, isVideoOn: enabled } : p))
-            );
-        });
-
-        webRTCService.onAudioToggle((peerId, enabled) => {
-            setParticipants((prev) =>
-                prev.map((p) => (p.id === peerId ? { ...p, isMicOn: enabled } : p))
-            );
-        });
+            })
+        })
 
         webRTCService.onPeerDisconnected((peerId) => {
             console.log(`Peer disconnected: ${peerId}`)
@@ -270,6 +254,7 @@ export default function MeetingRoom() {
             toast.info(`A participant has left the meeting`)
         })
 
+        // Simulate speaking detection
         const speakingInterval = setInterval(() => {
             if (participants.length > 1) {
                 const randomIndex = Math.floor(Math.random() * participants.length)
@@ -284,18 +269,35 @@ export default function MeetingRoom() {
 
         const setupMeeting = async () => {
             try {
-                const localStream = await webRTCService.getLocalStream(isVideoOn, isMicOn);
-        
-                setParticipants((prev) =>
-                    prev.map((p) => (p.isCurrentUser ? { ...p, stream: localStream } : p))
-                );
-        
-                const existingParticipants = await webRTCService.joinMeeting(meetingId);
-                console.log(
-                    `Joined meeting with ${existingParticipants.length} existing participants`,
-                    existingParticipants
-                );
-        
+                const localStream = await webRTCService.getLocalStream(isVideoOn, isMicOn)
+
+                setParticipants((prev) => prev.map((p) => (p.isCurrentUser ? { ...p, stream: localStream } : p)))
+
+                const existingParticipants = await webRTCService.joinMeeting(meetingId)
+                console.log(`Joined meeting with ${existingParticipants.length} existing participants`, existingParticipants)
+
+                // // Add fake participants for demo (remove in production)
+                // const fakeParticipants = [
+                //     {
+                //         id: "fake1",
+                //         name: "Alex Chen",
+                //         isCurrentUser: false,
+                //         avatar: "https://source.boringavatars.com/beam/120/fake1?colors=0891b2",
+                //     },
+                //     {
+                //         id: "fake2",
+                //         name: "Morgan Lee",
+                //         isCurrentUser: false,
+                //         avatar: "https://source.boringavatars.com/beam/120/fake2?colors=be123c",
+                //     },
+                //     {
+                //         id: "fake3",
+                //         name: "Taylor Kim",
+                //         isCurrentUser: false,
+                //         avatar: "https://source.boringavatars.com/beam/120/fake3?colors=16a34a",
+                //     },
+                // ]
+
                 setParticipants((prev) => {
                     const newParticipants = existingParticipants
                         .filter((peerId) => peerId !== userId)
@@ -304,21 +306,17 @@ export default function MeetingRoom() {
                             name: `User ${peerId.substring(0, 4)}`,
                             isCurrentUser: false,
                             avatar: `https://source.boringavatars.com/beam/120/${peerId}?colors=7c3aed`,
-                            isVideoOn: true,
-                            isMicOn: true,
-                        }));
-                    return [...prev, ...newParticipants];
-                });
-        
-                setIsConnected(true);
-                toast.success('Successfully joined the meeting');
+                        }))
+                    return [...prev, ...newParticipants]
+                })
+
+                setIsConnected(true)
+                toast.success("Successfully joined the meeting")
             } catch (error) {
-                console.error('Error setting up meeting:', error);
-                toast.error(
-                    'Failed to join the meeting. Please check your camera and microphone permissions.'
-                );
+                console.error("Error setting up meeting:", error)
+                toast.error("Failed to join the meeting. Please check your camera and microphone permissions.")
             }
-        };
+        }
 
         setupMeeting()
 
@@ -395,30 +393,30 @@ export default function MeetingRoom() {
             return count <= 1
                 ? "grid-cols-1"
                 : count <= 2
-                    ? "grid-cols-1 md:grid-cols-2"
+                    ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-2"
                     : count <= 4
-                        ? "grid-cols-2 md:grid-cols-2"
+                        ? "grid-cols-2 md:grid-cols-2 lg:grid-cols-2"
                         : count <= 6
-                            ? "grid-cols-2 md:grid-cols-3"
+                            ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-3"
                             : count <= 9
-                                ? "grid-cols-3 md:grid-cols-3"
-                                : "grid-cols-3 md:grid-cols-4"
+                                ? "grid-cols-3 md:grid-cols-3 lg:grid-cols-3"
+                                : "grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5"
         }
 
         // Auto layout (default)
         return count <= 1
             ? "grid-cols-1"
             : count === 2
-                ? "grid-cols-1 md:grid-cols-2"
+                ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-2"
                 : count === 3
-                    ? "grid-cols-1 md:grid-cols-3"
+                    ? "grid-cols-1 md:grid-cols-3 lg:grid-cols-3"
                     : count === 4
-                        ? "grid-cols-2 md:grid-cols-2"
+                        ? "grid-cols-2 md:grid-cols-2 lg:grid-cols-2"
                         : count <= 6
-                            ? "grid-cols-2 md:grid-cols-3"
+                            ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-3"
                             : count <= 9
-                                ? "grid-cols-3 md:grid-cols-3"
-                                : "grid-cols-3 md:grid-cols-4"
+                                ? "grid-cols-3 md:grid-cols-3 lg:grid-cols-3"
+                                : "grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5"
     }
 
     if (!isConnected) {
@@ -488,11 +486,11 @@ export default function MeetingRoom() {
             </div>
 
             {/* Video grid with multiple layout options */}
-            <div className="flex-1 p-2 relative">
+            <div className="flex-1 p-2 relative overflow-hidden">
                 {/* Main content area with videos */}
                 <div className="h-full flex">
                     {/* Video grid */}
-                    <div className={`grid ${getGridClassName()} gap-2 w-full h-full`}>
+                    <div className={`grid ${getGridClassName()} gap-2 w-full h-full max-h-full`}>
                         {gridLayout === "spotlight" && participants.length > 1 ? (
                             // Spotlight layout: one big video, others in sidebar
                             <>
@@ -969,6 +967,7 @@ export default function MeetingRoom() {
         </div>
     )
 }
+
 function VideoParticipant({
     participant,
     isMicOn,
@@ -976,33 +975,34 @@ function VideoParticipant({
     isSmall = false,
     isSpotlight = false,
 }: {
-    participant: Participant;
-    isMicOn: boolean;
-    isVideoOn: boolean;
-    isSmall?: boolean;
-    isSpotlight?: boolean;
+    participant: Participant
+    isMicOn: boolean
+    isVideoOn: boolean
+    isSmall?: boolean
+    isSpotlight?: boolean
 }) {
-    const videoRef = useRef<HTMLVideoElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null)
 
     useEffect(() => {
         if (videoRef.current && participant.stream) {
-            videoRef.current.srcObject = participant.stream;
+            videoRef.current.srcObject = participant.stream
         }
-    }, [participant.stream]);
+    }, [participant.stream])
 
     // Use participant's own isVideoOn/isMicOn if available, otherwise fall back to props
-    const videoEnabled = participant.isVideoOn ?? (participant.isCurrentUser ? isVideoOn : true);
-    const micEnabled = participant.isMicOn ?? (participant.isCurrentUser ? isMicOn : true);
+    const videoEnabled = participant.isVideoOn ?? (participant.isCurrentUser ? isVideoOn : true)
+    const micEnabled = participant.isMicOn ?? (participant.isCurrentUser ? isMicOn : true)
 
     return (
         <Card
-            className={`bg-black/40 backdrop-blur-sm text-white rounded-lg flex flex-col overflow-hidden ${isSmall ? "h-28" : "h-full"} ${participant.isSpeaking ? "ring-2 ring-primary" : ""}`}
+            className={`bg-black/40 backdrop-blur-sm text-white rounded-lg flex flex-col overflow-hidden ${isSmall ? "h-28" : "h-full"
+                } ${participant.isSpeaking ? "ring-2 ring-primary" : ""}`}
         >
-            <div className="relative flex-1">
+            <div className="relative flex-1 w-full h-full">
                 {participant.stream && (
                     <video
                         ref={videoRef}
-                        className={`w-full h-full object-cover ${videoEnabled ? "" : "hidden"}`}
+                        className={`absolute inset-0 w-full h-full object-cover ${videoEnabled ? "" : "hidden"}`}
                         autoPlay
                         playsInline
                         muted={participant.isCurrentUser}
@@ -1011,7 +1011,8 @@ function VideoParticipant({
                 {!videoEnabled && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-800 rounded-lg">
                         <div
-                            className={`${isSmall ? "h-12 w-12" : isSpotlight ? "h-28 w-28" : "h-20 w-20"} rounded-full bg-primary/20 flex items-center justify-center overflow-hidden`}
+                            className={`${isSmall ? "h-12 w-12" : isSpotlight ? "h-28 w-28" : "h-20 w-20"
+                                } rounded-full bg-primary/20 flex items-center justify-center overflow-hidden`}
                         >
                             {participant.avatar ? (
                                 <img
@@ -1029,7 +1030,7 @@ function VideoParticipant({
                 )}
 
                 {/* User status indicators */}
-                <div className="absolute bottom-3 left-3 flex gap-1">
+                <div className="absolute bottom-3 left-3 flex gap-1 z-10">
                     {!micEnabled && (
                         <div className="bg-black/60 backdrop-blur-sm p-1 rounded-md">
                             <MicOff className="h-4 w-4 text-red-500" />
@@ -1075,5 +1076,6 @@ function VideoParticipant({
                 )}
             </div>
         </Card>
-    );
+    )
 }
+
