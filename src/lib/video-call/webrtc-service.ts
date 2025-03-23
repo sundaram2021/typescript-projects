@@ -19,7 +19,6 @@ export class WebRTCService {
             this.eventSource.close();
         }
     
-        // Use EventSourcePolyfill with proper options
         this.eventSource = new EventSourcePolyfill(`/api/video-call/signal?userId=${this.userId}`, {
             withCredentials: true,
             heartbeatTimeout: 300000,
@@ -33,15 +32,11 @@ export class WebRTCService {
                 switch (data.type) {
                     case 'user-joined':
                         if (data.userId !== this.userId) {
-                            console.log(`User ${data.userId} joined, initiating connection`);
-                            const offer = await this.createOffer(data.userId);
-                            await this.sendSignal({
-                                type: 'offer',
-                                from: this.userId,
-                                to: data.userId,
-                                offer,
-                            });
-                            console.log(`Offer sent to ${data.userId}`);
+                            console.log(`User ${data.userId} joined`);
+                            // Do NOT send an offer here; wait for the new user's offer instead
+                            // Optionally, update participant list or UI if needed
+                            // this.createPeerConnection(data.userId)
+                            
                         }
                         break;
     
@@ -83,14 +78,14 @@ export class WebRTCService {
                             console.log(`ICE candidate processed for ${data.from}`);
                         }
                         break;
-                        
+    
                     case 'video-toggle':
                         if (data.from !== this.userId) {
                             console.log(`Received video toggle from ${data.from}: ${data.enabled}`);
                             this.notifyVideoToggle(data.from, data.enabled);
                         }
                         break;
-
+    
                     case 'audio-toggle':
                         if (data.from !== this.userId) {
                             console.log(`Received audio toggle from ${data.from}: ${data.enabled}`);
