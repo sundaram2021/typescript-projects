@@ -9,42 +9,42 @@ export async function POST(request: NextRequest) {
   const { type, from, to, offer, answer, candidate, meetingId } = data
 
   switch (type) {
-    case "join-meeting":
-      const dbService = new DatabaseService()
-      try {
-        const isActive = await dbService.isMeetingActive(meetingId)
-        
-        if (!isActive) {
-          return NextResponse.json({ error: "Meeting is not active" }, { status: 404 })
-        }
-        
-        await dbService.joinMeeting(meetingId, from)
-        
-        const participants = await dbService.getMeetingParticipants(meetingId)
-        
-        for (const participantId of participants) {
-          if (participantId !== from && connectedClients.has(participantId)) {
-            const client = connectedClients.get(participantId)
-            if (client?.controller) {
-              client.controller.enqueue(
-                JSON.stringify({
-                  type: "user-joined",
-                  userId: from,
-                  meetingId,
-                })
-              )
-            }
+case "join-meeting":
+    const dbService = new DatabaseService()
+    try {
+      const isActive = await dbService.isMeetingActive(meetingId)
+      
+      if (!isActive) {
+        await dbService.createMeeting(meetingId);
+      }
+      
+      await dbService.joinMeeting(meetingId, from)
+      
+      const participants = await dbService.getMeetingParticipants(meetingId)
+      
+      for (const participantId of participants) {
+        if (participantId !== from && connectedClients.has(participantId)) {
+          const client = connectedClients.get(participantId)
+          if (client?.controller) {
+            client.controller.enqueue(
+              JSON.stringify({
+                type: "user-joined",
+                userId: from,
+                meetingId,
+              })
+            )
           }
         }
-        
-        return NextResponse.json({ 
-          success: true, 
-          participants: participants.filter(p => p !== from)  // Return other participants
-        })
-      } catch (error) {
-        console.error("Error in join-meeting:", error)
-        return NextResponse.json({ error: "Failed to join meeting" }, { status: 500 })
       }
+      
+      return NextResponse.json({ 
+        success: true, 
+        participants: participants.filter(p => p !== from)  // Return other participants
+      })
+    } catch (error) {
+      console.error("Error in join-meeting:", error)
+      return NextResponse.json({ error: "Failed to join meeting" }, { status: 500 })
+    }
 
     case "offer":
       if (connectedClients.has(to)) {

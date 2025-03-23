@@ -84,15 +84,48 @@ export class WebRTCService {
       }
     }
     
-    async joinMeeting(meetingId: string): Promise<void> {
-      this.meetingId = meetingId
+async joinMeeting(meetingId: string): Promise<string[]> {
+    this.meetingId = meetingId
+    
+    try {
+      const response = await fetch(`/api/video-call/signal`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'join-meeting',
+          from: this.userId,
+          meetingId
+        }),
+      });
       
-      await this.sendSignal({
-        type: 'join-meeting',
-        from: this.userId,
-        meetingId
-      })
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to join meeting');
+      }
+      
+      if (data.participants && Array.isArray(data.participants)) {
+        for (const peerId of data.participants) {
+          if (peerId !== this.userId) {
+            console.log(`Initiating connection to existing participant: ${peerId}`);
+            const offer = await this.createOffer(peerId);
+            await this.sendSignal({
+              type: 'offer',
+              from: this.userId,
+              to: peerId,
+              offer
+            });
+          }
+        }
+        return data.participants;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error joining meeting:', error);
+      throw error;
     }
+  }
     
     async leaveMeeting(): Promise<void> {
       if (!this.meetingId) return

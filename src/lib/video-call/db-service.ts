@@ -25,26 +25,31 @@ export class DatabaseService {
   
   async createMeeting(hostId: string): Promise<string> {
     try {
-      const meetingId = Math.random().toString(36).substring(2, 12)
+      const meetingId = Math.random().toString(36).substring(2, 10).toUpperCase();
+      
+      const exists = await this.meetingExists(meetingId);
+      if (exists) {
+        return this.createMeeting(hostId);
+      }
       
       const { error } = await this.supabase
         .from('meetings')
         .insert({
           id: meetingId,
           host_id: hostId,
-        })
+        });
       
       if (error) {
-        console.error('Supabase error creating meeting:', error)
-        throw error
+        console.error('Supabase error creating meeting:', error);
+        throw error;
       }
       
-      await this.joinMeeting(meetingId, hostId)
+      await this.joinMeeting(meetingId, hostId);
       
-      return meetingId
+      return meetingId;
     } catch (error) {
-      console.error('Error creating meeting:', error)
-      throw error
+      console.error('Error creating meeting:', error);
+      throw error;
     }
   }
   

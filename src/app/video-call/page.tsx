@@ -20,13 +20,13 @@ export default function VideoCallHome() {
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            const storedUserId = sessionStorage.getItem('userId') || 
+            const storedUserId = localStorage.getItem('userId') ||
                 `user-${Math.random().toString(36).substring(2, 9)}`
-            
+
             setUserId(storedUserId)
-            
-            if (!sessionStorage.getItem('userId')) {
-                sessionStorage.setItem('userId', storedUserId)
+
+            if (!localStorage.getItem('userId')) {
+                localStorage.setItem('userId', storedUserId)
             }
         }
     }, [])
@@ -40,10 +40,10 @@ export default function VideoCallHome() {
             })
             return
         }
-        
+
         try {
             setIsCreating(true)
-            
+
             const response = await fetch("/api/video-call/meetings", {
                 method: "POST",
                 headers: {
@@ -51,18 +51,18 @@ export default function VideoCallHome() {
                 },
                 body: JSON.stringify({ hostId: userId }),
             })
-            
+
             const data = await response.json()
-            
+
             if (!response.ok) {
                 console.error("Server error:", data)
                 throw new Error(data.error || "Failed to create meeting")
             }
-            
+
             if (!data.meetingId) {
                 throw new Error("No meeting ID returned from server")
             }
-            
+
             router.push(`/video-call/meeting/${data.meetingId}`)
         } catch (error) {
             console.error("Error creating meeting:", error)
@@ -75,16 +75,16 @@ export default function VideoCallHome() {
             setIsCreating(false)
         }
     }
-    
+
     const joinMeeting = async () => {
         if (!meetingId.trim()) {
             setIsInvalidMeeting(true)
             return
         }
-        
+
         try {
             setIsValidating(true)
-            
+
             if (meetingId.length < 5) {
                 setIsInvalidMeeting(true)
                 toast({
@@ -94,7 +94,7 @@ export default function VideoCallHome() {
                 })
                 return
             }
-            
+
             router.push(`/video-call/meeting/${meetingId}`)
         } catch (error) {
             console.error("Error joining meeting:", error)
@@ -107,7 +107,7 @@ export default function VideoCallHome() {
             setIsValidating(false)
         }
     }
-    
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setMeetingId(e.target.value)
         setIsInvalidMeeting(false)
@@ -144,8 +144,8 @@ export default function VideoCallHome() {
                         </TabsList>
                         <TabsContent value="new" className="space-y-4">
                             <div className="flex flex-col gap-4">
-                                <Button 
-                                    className="w-full h-12 text-md" 
+                                <Button
+                                    className="w-full h-12 text-md"
                                     size="lg"
                                     onClick={createMeeting}
                                     disabled={isCreating || !userId}
@@ -167,14 +167,14 @@ export default function VideoCallHome() {
                         <TabsContent value="join" className="space-y-4">
                             <div className="flex flex-col gap-4">
                                 <div className="flex gap-2">
-                                    <Input 
-                                        placeholder="Enter meeting code" 
+                                    <Input
+                                        placeholder="Enter meeting code"
                                         className={`h-12 ${isInvalidMeeting ? 'border-red-500' : ''}`}
                                         value={meetingId}
                                         onChange={handleInputChange}
                                         onKeyDown={(e) => e.key === 'Enter' && joinMeeting()}
                                     />
-                                    <Button 
+                                    <Button
                                         className="h-12 px-6"
                                         onClick={joinMeeting}
                                         disabled={isValidating || !meetingId.trim() || !userId}
