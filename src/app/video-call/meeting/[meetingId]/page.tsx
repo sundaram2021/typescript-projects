@@ -80,7 +80,7 @@ export default function MeetingRoom() {
     const [activeTab, setActiveTab] = useState("participants")
     const [gridLayout, setGridLayout] = useState<"auto" | "equal" | "spotlight">("auto")
     const [layoutMenuOpen, setLayoutMenuOpen] = useState(false)
-    const [showControls, setShowControls] = useState(true)
+    // const [showControls, setShowControls] = useState(true)
     const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const mainContainerRef = useRef<HTMLDivElement>(null)
     const [elapsedTime, setElapsedTime] = useState<string>("00:00")
@@ -123,30 +123,6 @@ export default function MeetingRoom() {
         const randomColor = colors[Math.floor(Math.random() * colors.length)]
         return `https://source.boringavatars.com/beam/120/${userId}?colors=${randomColor}`
     }
-
-    // Mouse movement detector to show/hide controls
-    useEffect(() => {
-        const handleMouseMove = () => {
-            setShowControls(true)
-
-            if (controlsTimeoutRef.current) {
-                clearTimeout(controlsTimeoutRef.current)
-            }
-
-            controlsTimeoutRef.current = setTimeout(() => {
-                setShowControls(false)
-            }, 3000)
-        }
-
-        document.addEventListener("mousemove", handleMouseMove)
-
-        return () => {
-            document.removeEventListener("mousemove", handleMouseMove)
-            if (controlsTimeoutRef.current) {
-                clearTimeout(controlsTimeoutRef.current)
-            }
-        }
-    }, [])
 
     // Meeting timer
     useEffect(() => {
@@ -451,7 +427,7 @@ export default function MeetingRoom() {
 
             {/* Top bar - fades in/out based on showControls */}
             <div
-                className={`bg-black/40 backdrop-blur-md text-white p-3 flex justify-between items-center z-10 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0"}`}
+                className={`bg-black/40 backdrop-blur-md text-white p-3 flex justify-between items-center z-10 transition-opacity duration-300 opacity-100`}
             >
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-md">
@@ -580,7 +556,7 @@ export default function MeetingRoom() {
 
             {/* Controls bar - fades in/out based on showControls */}
             <div
-                className={`bg-black/60 backdrop-blur-md text-white p-4 flex flex-col sm:flex-row justify-center items-center gap-2 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0"}`}
+                className={`bg-black/60 backdrop-blur-md text-white p-4 flex flex-col sm:flex-row justify-center items-center gap-2 transition-opacity duration-300 opacity-100`}
             >
                 <div className="flex justify-center items-center gap-2 md:gap-3">
                     <Button

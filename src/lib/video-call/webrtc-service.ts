@@ -22,7 +22,7 @@ export class WebRTCService {
         // Use EventSourcePolyfill with proper options
         this.eventSource = new EventSourcePolyfill(`/api/video-call/signal?userId=${this.userId}`, {
             withCredentials: true,
-            heartbeatTimeout: 60000,
+            heartbeatTimeout: 300000,
         });
     
         this.eventSource.onmessage = async (event) => {
