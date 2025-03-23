@@ -53,47 +53,89 @@ export class DatabaseService {
     }
   }
   
-  async joinMeeting(meetingId: string, participantId: string): Promise<boolean> {
+  async joinMeeting(meetingId: string, participantId: string): Promise<Participant> {
     try {
-      const { data: meeting, error: meetingError } = await this.supabase
-        .from('meetings')
-        .select('id')
-        .eq('id', meetingId)
-        .single()
-      
-      if (meetingError) {
-        console.error('Supabase error checking meeting:', meetingError)
-        throw new Error('Meeting not found')
-      }
-      
-      const { data: existingParticipant, error: participantError } = await this.supabase
-        .from('participants')
-        .select('id')
-        .eq('meeting_id', meetingId)
-        .eq('participant_id', participantId)
-        .single()
-      
-      if (participantError) {
-        const { error: insertError } = await this.supabase
-          .from('participants')
-          .insert({
-            meeting_id: meetingId,
-            participant_id: participantId,
-          })
-        
-        if (insertError) {
-          console.error('Supabase error adding participant:', insertError)
-          throw insertError
+        if (!meetingId || !participantId) {
+            throw new Error('Meeting ID and Participant ID are required');
         }
-      }
-      
-      return true
+
+        const { data: meeting, error: meetingError } = await this.supabase
+            .from('meetings')
+            .select('id')
+            .eq('id', meetingId)
+            .single();
+
+        if (meetingError || !meeting) {
+            console.error('Supabase error checking meeting:', meetingError);
+            throw new Error('Meeting not found');
+        }
+
+        const { data: existingParticipant, error: participantError } = await this.supabase
+            .from('participants')
+            .select('id, meeting_id, participant_id, joined_at')
+            .eq('meeting_id', meetingId)
+            .eq('participant_id', participantId)
+            .single();
+
+        if (existingParticipant) {
+            console.log(`Participant ${participantId} already in meeting ${meetingId}`);
+            return {
+                id: existingParticipant.id,
+                joined_at: existingParticipant.joined_at,
+            };
+        }
+
+        if (participantError && participantError.code !== 'PGRST116') {
+            console.error('Supabase error checking participant:', participantError);
+            throw participantError;
+        }
+
+        const joinedAt = new Date().toISOString();
+        const { data: newParticipant, error: insertError } = await this.supabase
+            .from('participants')
+            .insert({
+                meeting_id: meetingId,
+                participant_id: participantId,
+                joined_at: joinedAt,
+            })
+            .select('id, meeting_id, participant_id, joined_at')
+            .single();
+
+        if (insertError) {
+            if (insertError.code === '23505') {
+                console.warn(`Participant ${participantId} already exists in meeting ${meetingId}`);
+                const { data: retryParticipant, error: retryError } = await this.supabase
+                    .from('participants')
+                    .select('id, meeting_id, participant_id, joined_at')
+                    .eq('meeting_id', meetingId)
+                    .eq('participant_id', participantId)
+                    .single();
+
+                if (retryError || !retryParticipant) {
+                    console.error('Supabase error retrying participant fetch:', retryError);
+                    throw new Error('Failed to fetch participant after duplicate error');
+                }
+
+                return {
+                    id: retryParticipant.id,
+                    joined_at: retryParticipant.joined_at,
+                };
+            }
+
+            console.error('Supabase error adding participant:', insertError);
+            throw insertError;
+        }
+
+        console.log(`Participant ${participantId} successfully joined meeting ${meetingId}`);
+        return {
+            id: newParticipant.id,
+            joined_at: newParticipant.joined_at,
+        };
     } catch (error) {
-      console.error('Error joining meeting:', error)
-      throw error
+        console.error('Error joining meeting:', error);
+        throw error;
     }
-  }
-  
+}
   async leaveMeeting(meetingId: string, participantId: string): Promise<void> {
     try {
       const { error } = await this.supabase

@@ -74,22 +74,38 @@ export default function MeetingRoom() {
 
         const setupMeeting = async () => {
             try {
-                const localStream = await webRTCService.getLocalStream(isVideoOn, isMicOn)
+                const localStream = await webRTCService.getLocalStream(isVideoOn, isMicOn);
 
-                setParticipants(prev =>
-                    prev.map(p => p.isCurrentUser ? { ...p, stream: localStream } : p)
-                )
+                setParticipants((prev) =>
+                    prev.map((p) => (p.isCurrentUser ? { ...p, stream: localStream } : p))
+                );
 
-                const existingParticipants = await webRTCService.joinMeeting(meetingId)
-                console.log(`Joined meeting with ${existingParticipants.length} existing participants`, existingParticipants)
+                const existingParticipants = await webRTCService.joinMeeting(meetingId);
+                console.log(
+                    `Joined meeting with ${existingParticipants.length} existing participants`,
+                    existingParticipants
+                );
 
-                setIsConnected(true)
-                toast.success('Successfully joined the meeting')
+                setParticipants((prev) => {
+                    const newParticipants = existingParticipants
+                        .filter((peerId) => peerId !== userId)
+                        .map((peerId) => ({
+                            id: peerId,
+                            name: `User ${peerId.substring(0, 4)}`,
+                            isCurrentUser: false,
+                        }));
+                    return [...prev, ...newParticipants];
+                });
+
+                setIsConnected(true);
+                toast.success('Successfully joined the meeting');
             } catch (error) {
-                console.error("Error setting up meeting:", error)
-                toast.error('Failed to join the meeting. Please check your camera and microphone permissions.')
+                console.error('Error setting up meeting:', error);
+                toast.error(
+                    'Failed to join the meeting. Please check your camera and microphone permissions.'
+                );
             }
-        }
+        };
 
         setupMeeting()
 
@@ -198,9 +214,9 @@ export default function MeetingRoom() {
 
             {/* Video grid with better layout */}
             <div className={`flex-1 p-4 ${participants.length === 1 ? 'flex justify-center items-center' :
-                    participants.length === 2 ? 'grid grid-cols-1 md:grid-cols-2 gap-4' :
-                        participants.length <= 4 ? 'grid grid-cols-1 md:grid-cols-2 gap-4' :
-                            'grid grid-cols-1 md:grid-cols-3 gap-4'
+                participants.length === 2 ? 'grid grid-cols-1 md:grid-cols-2 gap-4' :
+                    participants.length <= 4 ? 'grid grid-cols-1 md:grid-cols-2 gap-4' :
+                        'grid grid-cols-1 md:grid-cols-3 gap-4'
                 }`}>
                 {participants.map((participant) => (
                     <VideoParticipant

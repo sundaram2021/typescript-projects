@@ -9,42 +9,47 @@ export async function POST(request: NextRequest) {
   const { type, from, to, offer, answer, candidate, meetingId } = data
 
   switch (type) {
-case "join-meeting":
-    const dbService = new DatabaseService()
-    try {
-      const isActive = await dbService.isMeetingActive(meetingId)
-      
-      if (!isActive) {
-        await dbService.createMeeting(meetingId);
-      }
-      
-      await dbService.joinMeeting(meetingId, from)
-      
-      const participants = await dbService.getMeetingParticipants(meetingId)
-      
-      for (const participantId of participants) {
-        if (participantId !== from && connectedClients.has(participantId)) {
-          const client = connectedClients.get(participantId)
-          if (client?.controller) {
-            client.controller.enqueue(
-              JSON.stringify({
-                type: "user-joined",
-                userId: from,
-                meetingId,
-              })
-            )
-          }
+    case "join-meeting":
+        const dbService = new DatabaseService();
+        try {
+            const isActive = await dbService.isMeetingActive(meetingId);
+    
+            if (!isActive) {
+                console.error(`Meeting ${meetingId} does not exist`);
+                return NextResponse.json({ error: "Meeting does not exist" }, { status: 404 });
+            }
+    
+            // Update this line to handle the new return type
+            const participant = await dbService.joinMeeting(meetingId, from);
+    
+            const participants = await dbService.getMeetingParticipants(meetingId);
+    
+            console.log(`Participants in meeting ${meetingId}:`, participants);
+    
+            for (const participantId of participants) {
+                if (participantId !== from && connectedClients.has(participantId)) {
+                    const client = connectedClients.get(participantId);
+                    if (client?.controller) {
+                        console.log(`Notifying ${participantId} of new user ${from}`);
+                        client.controller.enqueue(
+                            JSON.stringify({
+                                type: "user-joined",
+                                userId: from,
+                                meetingId,
+                            }) + '\n\n'
+                        );
+                    }
+                }
+            }
+    
+            return NextResponse.json({
+                success: true,
+                participants: participants.filter((p) => p !== from),
+            });
+        } catch (error) {
+            console.error("Error in join-meeting:", error);
+            return NextResponse.json({ error: "Failed to join meeting" }, { status: 500 });
         }
-      }
-      
-      return NextResponse.json({ 
-        success: true, 
-        participants: participants.filter(p => p !== from)  // Return other participants
-      })
-    } catch (error) {
-      console.error("Error in join-meeting:", error)
-      return NextResponse.json({ error: "Failed to join meeting" }, { status: 500 })
-    }
 
     case "offer":
       if (connectedClients.has(to)) {
@@ -123,37 +128,40 @@ case "join-meeting":
       return NextResponse.json({ error: "Invalid signal type" }, { status: 400 })
   }
 }
-
 export async function GET(request: NextRequest) {
-  const userId = request.nextUrl.searchParams.get("userId")
-
-  if (!userId) {
-    return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    const userId = request.nextUrl.searchParams.get("userId");
+  
+    if (!userId) {
+      console.error("User ID missing in GET request");
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    }
+  
+    console.log(`Setting up EventSource stream for user: ${userId}`); // Debug log
+  
+    const stream = new ReadableStream({
+      start(controller) {
+        connectedClients.set(userId, { controller });
+  
+        controller.enqueue(
+          JSON.stringify({
+            type: "connected",
+            userId,
+            timestamp: new Date().toISOString(),
+          }) + '\n\n'
+        );
+  
+        request.signal.addEventListener("abort", () => {
+          console.log(`Client disconnected: ${userId}`);
+          connectedClients.delete(userId);
+        });
+      },
+    });
+  
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   }
-
-  const stream = new ReadableStream({
-    start(controller) {
-      connectedClients.set(userId, { controller })
-
-      controller.enqueue(
-        JSON.stringify({
-          type: "connected",
-          userId,
-          timestamp: new Date().toISOString(),
-        })
-      )
-
-      request.signal.addEventListener("abort", () => {
-        connectedClients.delete(userId)
-      })
-    },
-  })
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  })
-}
