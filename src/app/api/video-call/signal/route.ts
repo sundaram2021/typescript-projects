@@ -6,7 +6,7 @@ const connectedClients: Map<string, { controller: ReadableStreamDefaultControlle
 
 export async function POST(request: NextRequest) {
   const data = await request.json()
-  const { type, from, to, offer, answer, candidate, meetingId } = data
+  const { type, from, to, offer, answer, candidate, meetingId, enabled } = data
 
   switch (type) {
     case "join-meeting":
@@ -51,6 +51,21 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Failed to join meeting" }, { status: 500 });
         }
 
+        case 'video-toggle':
+            case 'audio-toggle':
+                if (connectedClients.has(to)) {
+                    const targetClient = connectedClients.get(to);
+                    if (targetClient?.controller) {
+                        targetClient.controller.enqueue(
+                            JSON.stringify({
+                                type,
+                                from,
+                                enabled,
+                            }) + '\n\n'
+                        );
+                    }
+                }
+                return NextResponse.json({ success: true });
     case "offer":
       if (connectedClients.has(to)) {
         const targetClient = connectedClients.get(to)
