@@ -1,4 +1,5 @@
 import { EventSourcePolyfill } from 'event-source-polyfill';
+
 export class WebRTCService {
     private peerConnections: Map<string, RTCPeerConnection> = new Map()
     private onVideoToggleCallbacks: ((peerId: string, enabled: boolean) => void)[] = [];
@@ -6,7 +7,7 @@ export class WebRTCService {
     private localStream: MediaStream | null = null
     private onTrackCallbacks: ((stream: MediaStream, peerId: string) => void)[] = []
     private onPeerDisconnectedCallbacks: ((peerId: string) => void)[] = []
-    private eventSource: EventSource | null = null
+    private eventSource: EventSourcePolyfill | null = null
     private meetingId: string | null = null
     
     constructor(private userId: string) {
@@ -18,7 +19,11 @@ export class WebRTCService {
             this.eventSource.close();
         }
     
-        this.eventSource = new EventSourcePolyfill(`/api/video-call/signal?userId=${this.userId}`);
+        // Use EventSourcePolyfill with proper options
+        this.eventSource = new EventSourcePolyfill(`/api/video-call/signal?userId=${this.userId}`, {
+            withCredentials: true,
+            heartbeatTimeout: 60000,
+        });
     
         this.eventSource.onmessage = async (event) => {
             try {
@@ -78,7 +83,8 @@ export class WebRTCService {
                             console.log(`ICE candidate processed for ${data.from}`);
                         }
                         break;
-                        case 'video-toggle':
+                        
+                    case 'video-toggle':
                         if (data.from !== this.userId) {
                             console.log(`Received video toggle from ${data.from}: ${data.enabled}`);
                             this.notifyVideoToggle(data.from, data.enabled);
