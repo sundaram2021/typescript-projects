@@ -2,8 +2,10 @@ import { EventSourcePolyfill } from 'event-source-polyfill';
 
 export class WebRTCService {
     private peerConnections: Map<string, RTCPeerConnection> = new Map()
-    private onVideoToggleCallbacks: ((peerId: string, enabled: boolean) => void)[] = [];
-    private onAudioToggleCallbacks: ((peerId: string, enabled: boolean) => void)[] = [];
+    private onVideoToggleCallbacks: ((peerId: string, enabled: boolean) => void)[] = []
+    private onAudioToggleCallbacks: ((peerId: string, enabled: boolean) => void)[] = []
+    private onUserJoinedCallbacks: ((userId: string) => void)[] = []
+    private onUserLeftCallbacks: ((userId: string) => void)[] = []
     private localStream: MediaStream | null = null
     private onTrackCallbacks: ((stream: MediaStream, peerId: string) => void)[] = []
     private onPeerDisconnectedCallbacks: ((peerId: string) => void)[] = []
@@ -13,6 +15,22 @@ export class WebRTCService {
     constructor(private userId: string) {
       this.setupEventSource()
     }
+
+    onVideoToggle(cb: (peerId: string, enabled: boolean) => void): void {
+        this.onVideoToggleCallbacks.push(cb)
+      }
+    
+      onAudioToggle(cb: (peerId: string, enabled: boolean) => void): void {
+        this.onAudioToggleCallbacks.push(cb)
+      }
+    
+      onUserJoined(cb: (userId: string) => void): void {
+        this.onUserJoinedCallbacks.push(cb)
+      }
+    
+      onUserLeft(cb: (userId: string) => void): void {
+        this.onUserLeftCallbacks.push(cb)
+      }
     
     private setupEventSource(): void {
         if (this.eventSource) {
@@ -32,20 +50,35 @@ export class WebRTCService {
                 switch (data.type) {
                     case 'user-joined':
                         if (data.userId !== this.userId) {
-                            console.log(`User ${data.userId} joined`);
-                            // Do NOT send an offer here; wait for the new user's offer instead
-                            // Optionally, update participant list or UI if needed
-                            // this.createPeerConnection(data.userId)
-                            
+                        console.log(`User ${data.userId} joined`);
+                        this.onUserJoinedCallbacks.forEach(cb => cb(data.userId))
                         }
                         break;
-    
+
                     case 'user-left':
                         if (this.peerConnections.has(data.userId)) {
-                            this.peerConnections.get(data.userId)?.close();
-                            this.peerConnections.delete(data.userId);
-                            this.handlePeerDisconnected(data.userId);
-                            console.log(`User ${data.userId} left, connection closed`);
+                        const peerConnection = this.peerConnections.get(data.userId);
+                        if (peerConnection) {
+                            peerConnection.close();
+                        }
+                        this.peerConnections.delete(data.userId);
+                        this.handlePeerDisconnected(data.userId);
+                        this.onUserLeftCallbacks.forEach(cb => cb(data.userId))
+                        console.log(`User ${data.userId} left, connection closed`);
+                        }
+                        break;
+
+                    case 'video-toggle':
+                        if (data.from !== this.userId) {
+                        console.log(`Received video toggle from ${data.from}: ${data.enabled}`);
+                        this.notifyVideoToggle(data.from, data.enabled);
+                        }
+                        break;
+
+                    case 'audio-toggle':
+                        if (data.from !== this.userId) {
+                        console.log(`Received audio toggle from ${data.from}: ${data.enabled}`);
+                        this.notifyAudioToggle(data.from, data.enabled);
                         }
                         break;
     
@@ -105,6 +138,7 @@ export class WebRTCService {
             }, 5000);
         };
     }
+    
     
   async joinMeeting(meetingId: string): Promise<string[]> {
     if (!meetingId) {
@@ -362,48 +396,41 @@ export class WebRTCService {
     
     toggleVideo(enabled: boolean): void {
         if (this.localStream) {
-            this.localStream.getVideoTracks().forEach((track) => {
-                track.enabled = enabled;
-            });
-            // Notify other peers with meetingId
-            this.sendSignal({
-                type: 'video-toggle',
-                from: this.userId,
-                meetingId: this.meetingId,
-                enabled,
-            });
+          this.localStream.getVideoTracks().forEach((track) => {
+            track.enabled = enabled;
+          });
+          // Notify other peers with meetingId
+          this.sendSignal({
+            type: 'video-toggle',
+            from: this.userId,
+            meetingId: this.meetingId,
+            enabled,
+          });
         }
-    }
+      }
     
-    toggleAudio(enabled: boolean): void {
+      toggleAudio(enabled: boolean): void {
         if (this.localStream) {
-            this.localStream.getAudioTracks().forEach((track) => {
-                track.enabled = enabled;
-            });
-            // Notify other peers with meetingId
-            this.sendSignal({
-                type: 'audio-toggle',
-                from: this.userId,
-                meetingId: this.meetingId,
-                enabled,
-            });
+          this.localStream.getAudioTracks().forEach((track) => {
+            track.enabled = enabled;
+          });
+          // Notify other peers with meetingId
+          this.sendSignal({
+            type: 'audio-toggle',
+            from: this.userId,
+            meetingId: this.meetingId,
+            enabled,
+          });
         }
-    }
+      }
 
-    onVideoToggle(callback: (peerId: string, enabled: boolean) => void): void {
-        this.onVideoToggleCallbacks.push(callback);
-    }
-
-    onAudioToggle(callback: (peerId: string, enabled: boolean) => void): void {
-        this.onAudioToggleCallbacks.push(callback);
-    }
 
     private notifyVideoToggle(peerId: string, enabled: boolean): void {
-        this.onVideoToggleCallbacks.forEach((callback) => callback(peerId, enabled));
+    this.onVideoToggleCallbacks.forEach((callback) => callback(peerId, enabled))
     }
 
     private notifyAudioToggle(peerId: string, enabled: boolean): void {
-        this.onAudioToggleCallbacks.forEach((callback) => callback(peerId, enabled));
+        this.onAudioToggleCallbacks.forEach((callback) => callback(peerId, enabled))
     }
     
     closeAllConnections(): void {

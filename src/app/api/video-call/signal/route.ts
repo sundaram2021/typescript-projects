@@ -51,39 +51,38 @@ export async function POST(request: NextRequest) {
               return NextResponse.json({ error: "Failed to join meeting" }, { status: 500 });
           }
   
-          case 'video-toggle':
-            case 'audio-toggle':
-                if (to && connectedClients.has(to)) {
-                    const targetClient = connectedClients.get(to);
-                    if (targetClient?.controller) {
-                        targetClient.controller.enqueue(
-                            "data: " + JSON.stringify({
-                                type,
-                                from,
-                                enabled,
-                            }) + '\n\n'
-                        );
-                    }
-                } else if (meetingId) {
-                    const dbService = new DatabaseService();
-                    const participants = await dbService.getMeetingParticipants(meetingId);
-                    for (const participantId of participants) {
-                        if (participantId !== from && connectedClients.has(participantId)) {
-                            const client = connectedClients.get(participantId);
-                            if (client?.controller) {
-                                client.controller.enqueue(
-                                    "data: " + JSON.stringify({
-                                        type,
-                                        from,
-                                        enabled,
-                                    }) + '\n\n'
-                                );
-                            }
-                        }
-                    }
-                }
-                return NextResponse.json({ success: true });
-  
+    case 'video-toggle':
+    case 'audio-toggle':
+      if (to && connectedClients.has(to)) {
+        const targetClient = connectedClients.get(to);
+        if (targetClient?.controller) {
+          targetClient.controller.enqueue(
+            "data: " + JSON.stringify({
+              type,
+              from,
+              enabled,
+            }) + '\n\n'
+          );
+        }
+      } else if (meetingId) {
+        const dbService = new DatabaseService();
+        const participants = await dbService.getMeetingParticipants(meetingId);
+        for (const participantId of participants) {
+          if (participantId !== from && connectedClients.has(participantId)) {
+            const client = connectedClients.get(participantId);
+            if (client?.controller) {
+              client.controller.enqueue(
+                "data: " + JSON.stringify({
+                  type,
+                  from,
+                  enabled,
+                }) + '\n\n'
+              );
+            }
+          }
+        }
+      }
+      return NextResponse.json({ success: true });
       case "offer":
         if (connectedClients.has(to)) {
           const targetClient = connectedClients.get(to)

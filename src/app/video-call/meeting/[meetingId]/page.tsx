@@ -199,17 +199,54 @@ export default function MeetingRoom() {
         if (typeof localStorage !== "undefined") {
             localStorage.setItem("userId", userId);
         }
-    
+
         const webRTCService = new WebRTCService(userId);
         webRTCServiceRef.current = webRTCService;
-    
-        // Handle incoming tracks
+
+        webRTCService.onUserJoined((userId) => {
+            if (!participants.find(p => p.id === userId)) {
+                setParticipants(prev => [
+                    ...prev,
+                    {
+                        id: userId,
+                        name: `User ${userId.substring(0, 4)}`,
+                        isCurrentUser: false,
+                        stream: undefined,
+                        avatar: `https://source.boringavatars.com/beam/120/${userId}?colors=7c3aed`,
+                        isVideoOn: true,
+                        isMicOn: true,
+                    }
+                ])
+            }
+        })
+
+        webRTCService.onUserLeft((userId) => {
+            setParticipants(prev => prev.filter(p => p.id !== userId))
+            toast.info(`Participant ${userId} has left the meeting`)
+        })
+
         webRTCService.onTrack((stream, peerId) => {
             console.log(`Received track from peer: ${peerId}`);
+
+            let isVideoOn = false;
+            let isMicOn = false;
+
+            if (stream.getVideoTracks().length > 0) {
+                isVideoOn = stream.getVideoTracks()[0].enabled;
+            }
+            if (stream.getAudioTracks().length > 0) {
+                isMicOn = stream.getAudioTracks()[0].enabled;
+            }
+
             setParticipants((prev) => {
                 const existingParticipant = prev.find((p) => p.id === peerId);
                 if (existingParticipant) {
-                    return prev.map((p) => (p.id === peerId ? { ...p, stream } : p));
+                    return prev.map((p) => {
+                        if (p.id === peerId) {
+                            return { ...p, stream, isVideoOn, isMicOn };
+                        }
+                        return p;
+                    });
                 } else {
                     return [
                         ...prev,
@@ -219,39 +256,40 @@ export default function MeetingRoom() {
                             isCurrentUser: false,
                             stream,
                             avatar: `https://source.boringavatars.com/beam/120/${peerId}?colors=7c3aed`,
-                            isVideoOn: true, // Assume true initially
-                            isMicOn: true,   // Assume true initially
+                            isVideoOn,
+                            isMicOn,
                         },
                     ];
                 }
             });
         });
-    
-        // Handle peer disconnection
-        webRTCService.onPeerDisconnected((peerId) => {
-            console.log(`Peer disconnected: ${peerId}`);
-            setParticipants((prev) => prev.filter((p) => p.id !== peerId));
-            toast.info(`A participant has left the meeting`);
-        });
-    
-        // Handle video toggle events
+
         webRTCService.onVideoToggle((peerId, enabled) => {
-            setParticipants((prev) =>
-                prev.map((p) =>
-                    p.id === peerId ? { ...p, isVideoOn: enabled } : p
-                )
-            );
+            setParticipants(prev => {
+                return prev.map(p => {
+                    if (p.id === peerId) {
+                        return { ...p, isVideoOn: enabled };
+                    }
+                    return p;
+                });
+            });
         });
-    
-        // Handle audio toggle events
+
         webRTCService.onAudioToggle((peerId, enabled) => {
-            setParticipants((prev) =>
-                prev.map((p) =>
-                    p.id === peerId ? { ...p, isMicOn: enabled } : p
-                )
-            );
+            setParticipants(prev => {
+                return prev.map(p => {
+                    if (p.id === peerId) {
+                        return { ...p, isMicOn: enabled };
+                    }
+                    return p;
+                });
+            });
         });
-    
+        webRTCService.onPeerDisconnected((peerId) => {
+            setParticipants(prev => prev.filter(p => p.id !== peerId))
+            toast.info(`Participant ${peerId} has disconnected`)
+        })
+
         // Simulate speaking detection (unchanged)
         const speakingInterval = setInterval(() => {
             if (participants.length > 1) {
@@ -264,17 +302,17 @@ export default function MeetingRoom() {
                 );
             }
         }, 2000);
-    
+
         const setupMeeting = async () => {
             try {
                 const localStream = await webRTCService.getLocalStream(isVideoOn, isMicOn);
                 setParticipants((prev) =>
                     prev.map((p) => (p.isCurrentUser ? { ...p, stream: localStream, isVideoOn: true, isMicOn: true } : p))
                 );
-    
+
                 const existingParticipants = await webRTCService.joinMeeting(meetingId);
                 console.log(`Joined meeting with ${existingParticipants.length} existing participants`, existingParticipants);
-    
+
                 setParticipants((prev) => {
                     const newParticipants = existingParticipants
                         .filter((peerId) => peerId !== userId)
@@ -288,7 +326,7 @@ export default function MeetingRoom() {
                         }));
                     return [...prev, ...newParticipants];
                 });
-    
+
                 setIsConnected(true);
                 toast.success("Successfully joined the meeting");
             } catch (error) {
@@ -296,9 +334,9 @@ export default function MeetingRoom() {
                 toast.error("Failed to join the meeting. Please check your camera and microphone permissions.");
             }
         };
-    
+
         setupMeeting();
-    
+
         return () => {
             clearInterval(speakingInterval);
             if (webRTCServiceRef.current) {
@@ -987,8 +1025,13 @@ function VideoParticipant({
                         muted={participant.isCurrentUser}
                     />
                 )}
-                {!videoEnabled && (
+                {(!participant.stream || !videoEnabled) && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-800 rounded-lg">
+                        {participant.stream ? (
+                            <div className="text-white">Video Off</div>
+                        ) : (
+                            <div className="text-white">Connecting...</div>
+                        )}
                         <div
                             className={`${isSmall ? "h-12 w-12" : isSpotlight ? "h-28 w-28" : "h-20 w-20"
                                 } rounded-full bg-primary/20 flex items-center justify-center overflow-hidden`}
@@ -1057,4 +1100,3 @@ function VideoParticipant({
         </Card>
     )
 }
-
