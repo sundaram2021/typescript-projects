@@ -197,18 +197,19 @@ export default function MeetingRoom() {
     // Setup WebRTC
     useEffect(() => {
         if (typeof localStorage !== "undefined") {
-            localStorage.setItem("userId", userId)
+            localStorage.setItem("userId", userId);
         }
-
-        const webRTCService = new WebRTCService(userId)
-        webRTCServiceRef.current = webRTCService
-
+    
+        const webRTCService = new WebRTCService(userId);
+        webRTCServiceRef.current = webRTCService;
+    
+        // Handle incoming tracks
         webRTCService.onTrack((stream, peerId) => {
-            console.log(`Received track from peer: ${peerId}`)
+            console.log(`Received track from peer: ${peerId}`);
             setParticipants((prev) => {
-                const existingParticipant = prev.find((p) => p.id === peerId)
+                const existingParticipant = prev.find((p) => p.id === peerId);
                 if (existingParticipant) {
-                    return prev.map((p) => (p.id === peerId ? { ...p, stream } : p))
+                    return prev.map((p) => (p.id === peerId ? { ...p, stream } : p));
                 } else {
                     return [
                         ...prev,
@@ -217,63 +218,63 @@ export default function MeetingRoom() {
                             name: `User ${peerId.substring(0, 4)}`,
                             isCurrentUser: false,
                             stream,
-                            avatar: `https://source.boringavatars.com/beam/120/${peerId}?colors=4f46e5`,
+                            avatar: `https://source.boringavatars.com/beam/120/${peerId}?colors=7c3aed`,
+                            isVideoOn: true, // Assume true initially
+                            isMicOn: true,   // Assume true initially
                         },
-                    ]
+                    ];
                 }
-            })
-        })
-
+            });
+        });
+    
+        // Handle peer disconnection
         webRTCService.onPeerDisconnected((peerId) => {
-            console.log(`Peer disconnected: ${peerId}`)
-            setParticipants((prev) => prev.filter((p) => p.id !== peerId))
-            toast.info(`A participant has left the meeting`)
-        })
-
-        // Simulate speaking detection
+            console.log(`Peer disconnected: ${peerId}`);
+            setParticipants((prev) => prev.filter((p) => p.id !== peerId));
+            toast.info(`A participant has left the meeting`);
+        });
+    
+        // Handle video toggle events
+        webRTCService.onVideoToggle((peerId, enabled) => {
+            setParticipants((prev) =>
+                prev.map((p) =>
+                    p.id === peerId ? { ...p, isVideoOn: enabled } : p
+                )
+            );
+        });
+    
+        // Handle audio toggle events
+        webRTCService.onAudioToggle((peerId, enabled) => {
+            setParticipants((prev) =>
+                prev.map((p) =>
+                    p.id === peerId ? { ...p, isMicOn: enabled } : p
+                )
+            );
+        });
+    
+        // Simulate speaking detection (unchanged)
         const speakingInterval = setInterval(() => {
             if (participants.length > 1) {
-                const randomIndex = Math.floor(Math.random() * participants.length)
+                const randomIndex = Math.floor(Math.random() * participants.length);
                 setParticipants((prev) =>
                     prev.map((p, idx) => ({
                         ...p,
                         isSpeaking: idx === randomIndex && Math.random() > 0.7,
-                    })),
-                )
+                    }))
+                );
             }
-        }, 2000)
-
+        }, 2000);
+    
         const setupMeeting = async () => {
             try {
-                const localStream = await webRTCService.getLocalStream(isVideoOn, isMicOn)
-
-                setParticipants((prev) => prev.map((p) => (p.isCurrentUser ? { ...p, stream: localStream } : p)))
-
-                const existingParticipants = await webRTCService.joinMeeting(meetingId)
-                console.log(`Joined meeting with ${existingParticipants.length} existing participants`, existingParticipants)
-
-                // // Add fake participants for demo (remove in production)
-                // const fakeParticipants = [
-                //     {
-                //         id: "fake1",
-                //         name: "Alex Chen",
-                //         isCurrentUser: false,
-                //         avatar: "https://source.boringavatars.com/beam/120/fake1?colors=0891b2",
-                //     },
-                //     {
-                //         id: "fake2",
-                //         name: "Morgan Lee",
-                //         isCurrentUser: false,
-                //         avatar: "https://source.boringavatars.com/beam/120/fake2?colors=be123c",
-                //     },
-                //     {
-                //         id: "fake3",
-                //         name: "Taylor Kim",
-                //         isCurrentUser: false,
-                //         avatar: "https://source.boringavatars.com/beam/120/fake3?colors=16a34a",
-                //     },
-                // ]
-
+                const localStream = await webRTCService.getLocalStream(isVideoOn, isMicOn);
+                setParticipants((prev) =>
+                    prev.map((p) => (p.isCurrentUser ? { ...p, stream: localStream, isVideoOn: true, isMicOn: true } : p))
+                );
+    
+                const existingParticipants = await webRTCService.joinMeeting(meetingId);
+                console.log(`Joined meeting with ${existingParticipants.length} existing participants`, existingParticipants);
+    
                 setParticipants((prev) => {
                     const newParticipants = existingParticipants
                         .filter((peerId) => peerId !== userId)
@@ -282,27 +283,29 @@ export default function MeetingRoom() {
                             name: `User ${peerId.substring(0, 4)}`,
                             isCurrentUser: false,
                             avatar: `https://source.boringavatars.com/beam/120/${peerId}?colors=7c3aed`,
-                        }))
-                    return [...prev, ...newParticipants]
-                })
-
-                setIsConnected(true)
-                toast.success("Successfully joined the meeting")
+                            isVideoOn: true, // Assume true initially
+                            isMicOn: true,   // Assume true initially
+                        }));
+                    return [...prev, ...newParticipants];
+                });
+    
+                setIsConnected(true);
+                toast.success("Successfully joined the meeting");
             } catch (error) {
-                console.error("Error setting up meeting:", error)
-                toast.error("Failed to join the meeting. Please check your camera and microphone permissions.")
+                console.error("Error setting up meeting:", error);
+                toast.error("Failed to join the meeting. Please check your camera and microphone permissions.");
             }
-        }
-
-        setupMeeting()
-
+        };
+    
+        setupMeeting();
+    
         return () => {
-            clearInterval(speakingInterval)
+            clearInterval(speakingInterval);
             if (webRTCServiceRef.current) {
-                webRTCServiceRef.current.closeAllConnections()
+                webRTCServiceRef.current.closeAllConnections();
             }
-        }
-    }, [])
+        };
+    }, []);
 
     const toggleMic = async () => {
         try {
@@ -547,7 +550,7 @@ export default function MeetingRoom() {
                 <Button
                     variant="secondary"
                     size="sm"
-                    className="absolute top-2 right-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10 py-1 px-3 shadow-lg z-10"
+                    className="absolute top-2 right-2 rounded-full text-amber-200 bg-black/50 backdrop-blur-md border border-white/10 py-1 px-3 shadow-lg z-10"
                 >
                     <Users className="h-4 w-4 mr-1" />
                     {participants.length}

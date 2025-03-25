@@ -360,29 +360,31 @@ export class WebRTCService {
       this.onPeerDisconnectedCallbacks.forEach((callback) => callback(peerId))
     }
     
-    toggleAudio(enabled: boolean): void {
-        if (this.localStream) {
-            this.localStream.getAudioTracks().forEach((track) => {
-                track.enabled = enabled;
-            });
-            // Notify other peers
-            this.sendSignal({
-                type: 'audio-toggle',
-                from: this.userId,
-                enabled,
-            });
-        }
-    }
-
     toggleVideo(enabled: boolean): void {
         if (this.localStream) {
             this.localStream.getVideoTracks().forEach((track) => {
                 track.enabled = enabled;
             });
-            // Notify other peers
+            // Notify other peers with meetingId
             this.sendSignal({
                 type: 'video-toggle',
                 from: this.userId,
+                meetingId: this.meetingId,
+                enabled,
+            });
+        }
+    }
+    
+    toggleAudio(enabled: boolean): void {
+        if (this.localStream) {
+            this.localStream.getAudioTracks().forEach((track) => {
+                track.enabled = enabled;
+            });
+            // Notify other peers with meetingId
+            this.sendSignal({
+                type: 'audio-toggle',
+                from: this.userId,
+                meetingId: this.meetingId,
                 enabled,
             });
         }
